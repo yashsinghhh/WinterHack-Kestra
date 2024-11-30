@@ -1,0 +1,18 @@
+id: gitpull
+namespace: github-pull
+
+tasks:
+  - id: sync_files
+    type: io.kestra.plugin.git.SyncNamespaceFiles
+    username: yashsinghhh
+    password: "{{secret('GITHUB_ACCESS_TOKEN')}}"
+    url: https://github.com/yashsinghhh/WinterHack-Kestra.git
+    branch: main
+    namespace: dev
+    gitDirectory: .
+    dryRun: false
+triggers:
+  - id: gh_webhook
+    type: io.kestra.plugin.core.trigger.Webhook
+    key: //enter key used in webhook
+    
