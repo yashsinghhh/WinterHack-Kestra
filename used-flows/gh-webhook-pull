@@ -15,4 +15,5 @@ triggers:
   - id: gh_webhook
     type: io.kestra.plugin.core.trigger.Webhook
     key: //enter key used in webhook
-    
+
+//check1 failed as content type of the webhook was not json
