@@ -22,6 +22,8 @@ spec:
         envFrom:
         - secretRef:
             name: my-app-secrets  # Name of your Kubernetes secret
+        - secretRef:
+            name: azure-sp-secret
       imagePullSecrets:
       - name: acr-secret  # Secret to pull images from ACR
 ---
@@ -37,3 +39,6 @@ spec:
       port: 80
       targetPort: 5001
   type: LoadBalancer
+
+# for ref in flows
+#kubectl set image deployment/winterhack-kestra winterhack-kestra=kestraacr.azurecr.io/my-node-app:latest
