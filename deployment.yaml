@@ -1,44 +1,81 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: winterhack-kestra
-  labels:
-    app: winterhack-kestra
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: winterhack-kestra
-  template:
-    metadata:
-      labels:
-        app: winterhack-kestra
-    spec:
-      containers:
-      - name: winterhack-kestra
-        image: kestraacr.azurecr.io/my-node-app:latest  # Your ACR image
-        ports:
-        - containerPort: 5001
-        envFrom:
-        - secretRef:
-            name: my-app-secrets  # Name of your Kubernetes secret
-        - secretRef:
-            name: azure-sp-secret
-      imagePullSecrets:
-      - name: acr-secret  # Secret to pull images from ACR
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: winterhack-kestra-service
-spec:
-  selector:
-    app: winterhack-kestra
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 5001
-  type: LoadBalancer
+id: docker_build_and_deploy
+namespace: dev
+tasks:
+  - id: install_az_cli
+    type: io.kestra.plugin.scripts.shell.Commands
+    commands:
+      - apt-get update && apt-get install -y curl sudo lsb-release gnupg
+      - curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+    containerImage: ubuntu:20.04
 
-# for ref in flows
-#kubectl set image deployment/winterhack-kestra winterhack-kestra=kestraacr.azurecr.io/my-node-app:latest
+  - id: az_login
+    type: io.kestra.plugin.scripts.shell.Commands
+    commands:
+      az login --service-principal \
+    -u $AZURE_CLIENT_ID \
+    -p $AZURE_CLIENT_SECRET \
+    --tenant $AZURE_TENANT_ID
+    containerImage: mcr.microsoft.com/azure-cli
+
+  # - id: checking_path
+  #   type: io.kestra.plugin.scripts.shell.Commands
+  #   commands:
+  #     - pwd
+
+  - id: build_docker_image
+    type: io.kestra.plugin.scripts.shell.Commands
+    containerImage: ubuntu:20.04
+    commands:
+      - apt-get update && apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+      - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+      - add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+      - apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io
+
+      
+      - dockerd && sleep 10
+
+      
+      - docker build -t my-node-app:latest .
+
+    
+      - docker tag my-node-app:latest kestraacr.azurecr.io/my-node-app:latest
+      - az acr build --registry kestraacr --image my-node-app:latest -f Dockerfile .
+
+
+
+  - id: acr_login
+    type: io.kestra.plugin.scripts.shell.Commands
+    containerImage: mcr.microsoft.com/azure-cli
+    commands:
+      - az acr login --name kestraacr
+
+  - id: push_to_acr
+    type: io.kestra.plugin.scripts.shell.Commands
+    containerImage: mcr.microsoft.com/azure-cli
+    commands:
+      - docker push ${image_name}:${image_tag}
+      
+  - id: update_k8s_deployment
+    type: io.kestra.plugin.scripts.shell.Commands
+    containerImage: mcr.microsoft.com/azure-cli
+    commands:
+      - kubectl set image deployment/winterhack-kestra winterhack-kestra=my-node-app:latest -n default
+
+  - id: wait_for_deployment
+    type: io.kestra.plugin.scripts.shell.Commands
+    containerImage: mcr.microsoft.com/azure-cli
+    commands:
+      - kubectl rollout status deployment/winterhack-kestra -n default --timeout=300s
+
+  - id: check_deployment_status
+    type: io.kestra.plugin.scripts.shell.Commands
+    containerImage: mcr.microsoft.com/azure-cli
+    commands:
+      - |
+        if kubectl get deployment winterhack-kestra -n default -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' | grep -q "True"; then
+          echo "Deployment successful!"
+          exit 0
+        else
+          echo "Deployment failed!"
+          exit 1
+        fi
