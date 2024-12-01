@@ -19,18 +19,6 @@ tasks:
 #       - exit 1 
 
 
-# errors:
-#   - id: send_email
-#     type: io.kestra.plugin.notifications.mail.MailSend
-#     from: kestra.app@gmail.com
-#     to: yashsingh0666@gmail.com
-#     username: "{{ secret('EMAIL_USERNAME') }}"
-#     password: "{{ secret('EMAIL_PASSWORD') }}"
-#     host: smtp.gmail.com
-#     port: 465 # or 587
-#     subject: "Kestra workflow failed for the flow {{flow.id}} in the namespace {{flow.namespace}}"
-#     htmlTextContent: "Failure alert for flow {{ flow.namespace }}.{{ flow.id }} with ID {{ execution.id }}"
-
 triggers:
   - id: gh_webhook
     type: io.kestra.plugin.core.trigger.Webhook
