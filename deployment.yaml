@@ -16,14 +16,14 @@ spec:
     spec:
       containers:
       - name: winterhack-kestra
-        # Update to the correct image name in ACR
-        image: kestraacr.azurecr.io/my-node-app:latest
+        image: kestraacr.azurecr.io/my-node-app:latest  # Your ACR image
         ports:
         - containerPort: 5001
-        # Mount environment variables from existing secret
         envFrom:
         - secretRef:
-            name: my-app-secrets
+            name: my-app-secrets  # Name of your Kubernetes secret
+      imagePullSecrets:
+      - name: acr-secret  # Secret to pull images from ACR
 ---
 apiVersion: v1
 kind: Service
